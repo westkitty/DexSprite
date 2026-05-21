@@ -273,6 +273,22 @@
                         </label>
                     </div>
 
+                    <!-- Auto Alignment Controls -->
+                    <div class="control-group auto-align-group" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; margin-top: 5px; margin-bottom: 12px;">
+                        <label class="group-title" style="margin-bottom: 8px; display: block; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-high);">Auto Stabilizer Alignment</label>
+                        <div class="select-wrapper" style="margin-bottom: 8px;">
+                            <select id="alignment-mode-select" class="premium-select" style="width: 100%; font-size: 11px; padding: 6px 10px;">
+                                <option value="stabilize">Remove Jitter (Stabilize relative motion)</option>
+                                <option value="center">Center in Cell (Absolute horizontal & vertical)</option>
+                                <option value="bottom">Bottom-Center (Stabilize feet at cell floor)</option>
+                            </select>
+                        </div>
+                        <div class="control-deck">
+                            <button id="btn-run-auto-align" class="deck-btn accent-btn" title="Analyze frame pixel boundaries and auto-align them" disabled>⚡ Auto-Align</button>
+                            <button id="btn-recenter-fit" class="deck-btn warning-btn" title="Reset offsets and set zoom to fit perfectly" disabled>🔍 Recenter & Fit</button>
+                        </div>
+                    </div>
+
                     <p class="canvas-help-text">Click and drag inside loop to offset cell coordinates (eliminates vertical/horizontal jitter)</p>
 
                     <!-- Animation Filmstrip Strip -->

@@ -100,7 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
         themeSelect: document.getElementById('theme-select'),
         btnMagicSlice: document.getElementById('btn-magic-slice'),
         chkOnionSkin: document.getElementById('chk-onion-skin'),
-        chkRetroSfx: document.getElementById('chk-retro-sfx')
+        chkRetroSfx: document.getElementById('chk-retro-sfx'),
+
+        // Auto Alignment & Stabilizers
+        btnRunAutoAlign: document.getElementById('btn-run-auto-align'),
+        btnRecenterFit: document.getElementById('btn-recenter-fit'),
+        alignmentModeSelect: document.getElementById('alignment-mode-select')
     };
 
     // --- Tab Switching System ---
@@ -269,6 +274,20 @@ document.addEventListener('DOMContentLoaded', () => {
         resetFrameOffset();
     });
 
+    // --- Auto Alignment bindings ---
+    if (els.btnRunAutoAlign) {
+        els.btnRunAutoAlign.addEventListener('click', () => {
+            playSynthSFX('success');
+            runAutoAlignment();
+        });
+    }
+    if (els.btnRecenterFit) {
+        els.btnRecenterFit.addEventListener('click', () => {
+            playSynthSFX('pop');
+            recenterAndFitAll();
+        });
+    }
+
     // --- Interactive Slicer Click Toggling ---
     els.slicerCanvas.addEventListener('click', (e) => {
         if (!state.sourceImage) return;
@@ -322,8 +341,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.isDragging = false;
                 return;
             }
-            frame.dx += Math.round(dx / state.playbackZoom);
-            frame.dy += Math.round(dy / state.playbackZoom);
+            
+            let newDx = frame.dx + Math.round(dx / state.playbackZoom);
+            let newDy = frame.dy + Math.round(dy / state.playbackZoom);
+            
+            // Clamp crop window offset to keep it within the source image dimensions
+            const maxDx = state.sourceWidth - state.spriteW - frame.x;
+            const minDx = -frame.x;
+            newDx = Math.max(minDx, Math.min(maxDx, newDx));
+            
+            const maxDy = state.sourceHeight - state.spriteH - frame.y;
+            const minDy = -frame.y;
+            newDy = Math.max(minDy, Math.min(maxDy, newDy));
+            
+            // Clamp to a maximum of one sprite cell size in either direction
+            frame.dx = Math.max(-state.spriteW, Math.min(state.spriteW, newDx));
+            frame.dy = Math.max(-state.spriteH, Math.min(state.spriteH, newDy));
             
             state.dragStart = { x: e.clientX, y: e.clientY };
             
@@ -382,6 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnExportPng.disabled = false;
         els.btnExportGif.disabled = false;
         els.btnExportHtml.disabled = false;
+
+        if (els.btnRunAutoAlign) els.btnRunAutoAlign.disabled = false;
+        if (els.btnRecenterFit) els.btnRecenterFit.disabled = false;
     }
 
     // --- Core Processing Pipeline Engine ---
@@ -1322,6 +1358,214 @@ document.addEventListener('DOMContentLoaded', () => {
         slice.dy = 0;
         
         sliceAndRecompute(true);
+    }
+
+    function recenterAndFitAll() {
+        if (!state.activeSlices.length) return;
+        
+        // 1. Reset all offsets
+        state.activeSlices.forEach(slice => {
+            slice.dx = 0;
+            slice.dy = 0;
+        });
+        
+        // 2. Auto-fit zoom based on parent container client size
+        const canvas = els.playbackCanvas;
+        if (canvas && canvas.parentElement) {
+            const containerW = canvas.parentElement.clientWidth;
+            const containerH = canvas.parentElement.clientHeight;
+            
+            // Subtract some padding to not tightly clip
+            const fitW = containerW * 0.85;
+            const fitH = containerH * 0.85;
+            
+            const zoomW = fitW / state.spriteW;
+            const zoomH = fitH / state.spriteH;
+            
+            // Round to nearest 0.5 step to align with slider
+            let idealZoom = Math.min(zoomW, zoomH);
+            idealZoom = Math.max(1, Math.min(16, Math.round(idealZoom * 2) / 2));
+            
+            // Update state and UI
+            state.playbackZoom = idealZoom;
+            els.playbackZoomSlider.value = idealZoom;
+            els.playbackZoomReadout.textContent = `${idealZoom.toFixed(1)}x`;
+        }
+        
+        // Redraw
+        sliceAndRecompute(true);
+        updateStatus(`Recentered sprite offsets and auto-fitted zoom.`);
+    }
+
+    function runAutoAlignment() {
+        if (!state.activeSlices.length) return;
+        
+        const mode = els.alignmentModeSelect.value; // 'stabilize', 'center', 'bottom'
+        updateStatus(`Running auto-alignment (${mode})...`);
+        
+        // 1. First, analyze each frame's bounds without offsets
+        const framesBounds = state.activeSlices.map(slice => {
+            // Draw slice at original x, y (dx=0, dy=0) to scan pixels
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = state.spriteW;
+            tempCanvas.height = state.spriteH;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.drawImage(
+                state.sourceImage,
+                slice.x, slice.y, state.spriteW, state.spriteH,
+                0, 0, state.spriteW, state.spriteH
+            );
+            
+            const imgData = tempCtx.getImageData(0, 0, state.spriteW, state.spriteH);
+            const data = imgData.data;
+            const width = state.spriteW;
+            const height = state.spriteH;
+            
+            // Check for alpha transparency
+            let hasAlpha = false;
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] < 128) {
+                    hasAlpha = true;
+                    break;
+                }
+            }
+            
+            // Background color fallback if no alpha
+            let bgR = 0, bgG = 0, bgB = 0;
+            if (!hasAlpha) {
+                bgR = data[0];
+                bgG = data[1];
+                bgB = data[2];
+            }
+            
+            let minX = width, maxX = -1, minY = height, maxY = -1;
+            let sumX = 0, sumY = 0, pixelCount = 0;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    const a = data[idx + 3];
+                    
+                    let isTransparent = false;
+                    if (hasAlpha) {
+                        isTransparent = (a < 128);
+                    } else {
+                        isTransparent = (Math.abs(r - bgR) < 15 && Math.abs(g - bgG) < 15 && Math.abs(b - bgB) < 15);
+                    }
+                    
+                    if (!isTransparent) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                        
+                        sumX += x;
+                        sumY += y;
+                        pixelCount++;
+                    }
+                }
+            }
+            
+            if (pixelCount === 0) {
+                return {
+                    empty: true,
+                    centerX: width / 2,
+                    centerY: height / 2,
+                    bottomCenterX: width / 2,
+                    bottomCenterY: height - 1
+                };
+            }
+            
+            return {
+                empty: false,
+                centerX: minX + (maxX - minX) / 2,
+                centerY: minY + (maxY - minY) / 2,
+                bottomCenterX: minX + (maxX - minX) / 2,
+                bottomCenterY: maxY
+            };
+        });
+        
+        // 2. Compute averages if needed
+        let avgCenterX = 0;
+        let avgCenterY = 0;
+        let avgBottomCenterX = 0;
+        let avgBottomCenterY = 0;
+        let nonNonEmptyCount = 0;
+        
+        framesBounds.forEach(b => {
+            if (!b.empty) {
+                avgCenterX += b.centerX;
+                avgCenterY += b.centerY;
+                avgBottomCenterX += b.bottomCenterX;
+                avgBottomCenterY += b.bottomCenterY;
+                nonNonEmptyCount++;
+            }
+        });
+        
+        if (nonNonEmptyCount > 0) {
+            avgCenterX /= nonNonEmptyCount;
+            avgCenterY /= nonNonEmptyCount;
+            avgBottomCenterX /= nonNonEmptyCount;
+            avgBottomCenterY /= nonNonEmptyCount;
+        } else {
+            avgCenterX = state.spriteW / 2;
+            avgCenterY = state.spriteH / 2;
+            avgBottomCenterX = state.spriteW / 2;
+            avgBottomCenterY = state.spriteH - 2;
+        }
+        
+        // 3. Apply alignment depending on the selected mode
+        state.activeSlices.forEach((slice, idx) => {
+            const bounds = framesBounds[idx];
+            
+            if (bounds.empty) {
+                slice.dx = 0;
+                slice.dy = 0;
+                return;
+            }
+            
+            let targetDx = 0;
+            let targetDy = 0;
+            
+            if (mode === 'stabilize') {
+                // Align content center to collective average content center
+                targetDx = bounds.centerX - avgCenterX;
+                targetDy = bounds.centerY - avgCenterY;
+            } else if (mode === 'center') {
+                // Align content center to cell center
+                targetDx = bounds.centerX - (state.spriteW / 2);
+                targetDy = bounds.centerY - (state.spriteH / 2);
+            } else if (mode === 'bottom') {
+                // Align bottom-center to cell floor bottom center (with 2px floor padding)
+                targetDx = bounds.bottomCenterX - (state.spriteW / 2);
+                targetDy = bounds.bottomCenterY - (state.spriteH - 2);
+            }
+            
+            // Round offsets and clamp to keep within bounds
+            slice.dx = Math.round(targetDx);
+            slice.dy = Math.round(targetDy);
+            
+            // Clamp crop window offset to keep it within the source image dimensions
+            const maxDx = state.sourceWidth - state.spriteW - slice.x;
+            const minDx = -slice.x;
+            slice.dx = Math.max(minDx, Math.min(maxDx, slice.dx));
+            
+            const maxDy = state.sourceHeight - state.spriteH - slice.y;
+            const minDy = -slice.y;
+            slice.dy = Math.max(minDy, Math.min(maxDy, slice.dy));
+            
+            // Also clamp to a maximum offset of one sprite cell size in either direction
+            slice.dx = Math.max(-state.spriteW, Math.min(state.spriteW, slice.dx));
+            slice.dy = Math.max(-state.spriteH, Math.min(state.spriteH, slice.dy));
+        });
+        
+        // 4. Redraw & update
+        sliceAndRecompute(true);
+        updateStatus(`Auto-alignment completed successfully via "${mode}" mode.`);
     }
 
     // --- Helper Status logger ---
