@@ -191,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const [w, h] = e.target.value.split('x').map(Number);
             state.spriteW = w;
             state.spriteH = h;
+            state.slices = []; // Reinitialize slices array on layout adjustment
             if (state.sourceImage) sliceAndRecompute();
         });
     });
@@ -198,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="gutter-size"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             state.padding = Number(e.target.value);
+            state.slices = []; // Reinitialize slices array on layout adjustment
             if (state.sourceImage) sliceAndRecompute();
         });
     });
@@ -273,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rect = els.slicerCanvas.getBoundingClientRect();
         
         // Map viewport click to actual source image coordinate space
-        const scaleX = state.sourceWidth / els.slicerCanvas.width;
-        const scaleY = state.sourceHeight / els.slicerCanvas.height;
+        const scaleX = state.sourceWidth / rect.width;
+        const scaleY = state.sourceHeight / rect.height;
         const clickX = (e.clientX - rect.left) * scaleX;
         const clickY = (e.clientY - rect.top) * scaleY;
         
@@ -311,7 +313,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Accumulate drag displacements into offset attributes
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            if (state.draggedFrameIdx === null || !state.activeSlices || state.draggedFrameIdx >= state.activeSlices.length) {
+                state.isDragging = false;
+                return;
+            }
             const frame = state.activeSlices[state.draggedFrameIdx];
+            if (!frame) {
+                state.isDragging = false;
+                return;
+            }
             frame.dx += Math.round(dx / state.playbackZoom);
             frame.dy += Math.round(dy / state.playbackZoom);
             
@@ -1320,6 +1330,59 @@ document.addEventListener('DOMContentLoaded', () => {
         els.statusText.style.color = isError ? 'var(--danger-red)' : 'var(--text-mid)';
     }
 
+    // --- Dynamic Exporter Hybrid Bridge (WebKit Message Bridge / Graceful Browser Fallback) ---
+    function triggerFileExport(data, filename, type) {
+        const isNative = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.exportFile;
+        
+        if (isNative) {
+            // NATIVE PATH: Send to Swift Cocoa bridge
+            if (type === 'canvas') {
+                const base64 = data.toDataURL('image/png').split(',')[1];
+                window.webkit.messageHandlers.exportFile.postMessage({ filename, base64 });
+                updateStatus(`Export Success: Sprite sheet saved via macOS native bridge.`);
+            } else if (type === 'blob') {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = reader.result.split(',')[1];
+                    window.webkit.messageHandlers.exportFile.postMessage({ filename, base64 });
+                    updateStatus(`Export Success: Diagnostic loop saved via macOS native bridge.`);
+                };
+                reader.readAsDataURL(data);
+            } else if (type === 'string') {
+                const base64 = btoa(unescape(encodeURIComponent(data)));
+                window.webkit.messageHandlers.exportFile.postMessage({ filename, base64 });
+                updateStatus(`Export Success: Playtest sandbox saved via macOS native bridge.`);
+            }
+        } else {
+            // WEB PATH: Graceful browser fallback with DOM-appended link elements
+            const link = document.createElement('a');
+            link.download = filename;
+            
+            if (type === 'canvas') {
+                data.toBlob((blob) => {
+                    link.href = URL.createObjectURL(blob);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    updateStatus('Export Success: Sprite sheet atlas PNG generated.');
+                }, 'image/png');
+            } else if (type === 'blob') {
+                link.href = URL.createObjectURL(data);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                updateStatus('Export Success: Diagnostic transparency looping GIF generated.');
+            } else if (type === 'string') {
+                const blob = new Blob([data], { type: 'text/html' });
+                link.href = URL.createObjectURL(blob);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                updateStatus('Export Success: Portable HTML5 Canvas playtest sandbox compiled.');
+            }
+        }
+    }
+
     // ==========================================================================
     // EXPORTER ACTIONS: PNG Texture Atlas, Looping GIF, Playtest Sandbox
     // ==========================================================================
@@ -1328,17 +1391,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.compiledSheetCanvas) return;
         
         renderCompiledAtlas(); // Ensure latest sync
-        
-        // Export sheet canvas natively as standard high-res PNG download
-        const link = document.createElement('a');
-        link.download = 'dex_spritesheet.png';
-        
-        // Convert to blob and download
-        state.compiledSheetCanvas.toBlob((blob) => {
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            updateStatus('Export Success: Sprite sheet atlas PNG generated.');
-        }, 'image/png');
+        triggerFileExport(state.compiledSheetCanvas, 'dex_spritesheet.png', 'canvas');
     });
 
     els.btnExportGif.addEventListener('click', () => {
@@ -1368,12 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const gifBytes = encodeGifLoop(w, h, framesData, state.masterPalette, delayHundredths);
         
         const blob = new Blob([gifBytes], { type: 'image/gif' });
-        const link = document.createElement('a');
-        link.download = 'dex_playback_loop.gif';
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        
-        updateStatus('Export Success: Diagnostic transparency looping GIF generated.');
+        triggerFileExport(blob, 'dex_playback_loop.gif', 'blob');
     });
 
     els.btnExportHtml.addEventListener('click', () => {
@@ -1581,13 +1629,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>`;
 
-        const blob = new Blob([sandboxHtml], { type: 'text/html' });
-        const link = document.createElement('a');
-        link.download = 'dex_playtest_sandbox.html';
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        
-        updateStatus('Export Success: Portable HTML5 Canvas playtest sandbox compiled.');
+        triggerFileExport(sandboxHtml, 'dex_playtest_sandbox.html', 'string');
     });
 
     // ==========================================================================

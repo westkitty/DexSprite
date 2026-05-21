@@ -1,7 +1,7 @@
 import Cocoa
 import WebKit
 
-class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     var window: NSWindow!
     var webView: WKWebView!
 
@@ -20,6 +20,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         // Inject JS flag to identify native macOS App environment
         let script = WKUserScript(source: "window.isNativeApp = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(script)
+        
+        // Register export message handler bridge
+        config.userContentController.add(self, name: "exportFile")
         
         // Configure preferences
         config.preferences.setValue(true, forKey: "developerExtrasEnabled") // Enable Web Inspector / Developer Tools on right click!
@@ -137,6 +140,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         }
     }
     
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "exportFile",
+              let body = message.body as? [String: Any],
+              let filename = body["filename"] as? String,
+              let base64Data = body["base64"] as? String,
+              let data = Data(base64Encoded: base64Data) else {
+            return
+        }
+        
+        DispatchQueue.main.async {
+            let savePanel = NSSavePanel()
+            savePanel.nameFieldStringValue = filename
+            savePanel.begin { result in
+                if result == .OK, let url = savePanel.url {
+                    do {
+                        try data.write(to: url)
+                    } catch {
+                        print("Error writing exported file: \(error)")
+                    }
+                }
+            }
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
     }
