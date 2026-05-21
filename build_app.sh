@@ -83,13 +83,19 @@ rm -rf "/Applications/DexSprite.app"
 rm -rf "/Applications/Dex Sprite.app"
 cp -R "$APP_BUNDLE" "/Applications/Dex Sprite.app"
 
+# Force Finder to invalidate all cached attributes of the bundle by updating its modification time
+touch "/Applications/Dex Sprite.app"
+
 echo "==> Registering application with macOS Launch Services..."
 # Unregister the intermediate build directory bundle to avoid Launch Services launch conflicts
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u "$APP_BUNDLE"
 # Register the final bundle inside /Applications
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "/Applications/Dex Sprite.app"
 
-echo "==> Flushing macOS Dock & Finder preferences caches..."
-killall Dock || true
+echo "==> Flushing macOS Dock & Finder icon preferences caches..."
+# Safely clear user-level launchservices and dock icon caches to force macOS to repaint the new icon instantly
+rm -f /var/folders/*/*/*/com.apple.dock.iconcache 2>/dev/null || true
+rm -rf /var/folders/*/*/*/com.apple.iconservices 2>/dev/null || true
+killall Dock Finder || true
 
 echo "==> Success! Dex Sprite.app has been successfully compiled, registered, and installed to /Applications/Dex Sprite.app."
