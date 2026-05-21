@@ -35,6 +35,67 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
             let parentDir = wwwURL.deletingLastPathComponent()
             webView.loadFileURL(wwwURL, allowingReadAccessTo: parentDir)
         }
+        
+        setupMenuBar()
+    }
+
+    func setupMenuBar() {
+        let mainMenu = NSMenu()
+        
+        // 1. App Menu (Dex Sprite)
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        
+        let appMenu = NSMenu()
+        appMenuItem.submenu = appMenu
+        
+        // Standard About
+        appMenu.addItem(withTitle: "About Dex Sprite", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(NSMenuItem.separator())
+        
+        // Standard Hide
+        appMenu.addItem(withTitle: "Hide Dex Sprite", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        
+        // Hide Others
+        let hideOthersItem = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(hideOthersItem)
+        
+        // Show All
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(NSMenuItem.separator())
+        
+        // Standard Quit (Cmd+Q)
+        appMenu.addItem(withTitle: "Quit Dex Sprite", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        
+        // 2. Edit Menu (Crucial for Copy, Paste, Cut, Undo, Select All inside WKWebView)
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        
+        let editMenu = NSMenu(title: "Edit")
+        editMenuItem.submenu = editMenu
+        
+        editMenu.addItem(withTitle: "Undo", action: NSSelectorFromString("undo:"), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: NSSelectorFromString("redo:"), keyEquivalent: "Z")
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(withTitle: "Cut", action: NSSelectorFromString("cut:"), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: NSSelectorFromString("copy:"), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: NSSelectorFromString("paste:"), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: NSSelectorFromString("selectAll:"), keyEquivalent: "a")
+        
+        // 3. Window Menu
+        let windowMenuItem = NSMenuItem()
+        mainMenu.addItem(windowMenuItem)
+        
+        let windowMenu = NSMenu(title: "Window")
+        windowMenuItem.submenu = windowMenu
+        
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(NSMenuItem.separator())
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        
+        NSApp.mainMenu = mainMenu
     }
     
     // Support file download delegation
