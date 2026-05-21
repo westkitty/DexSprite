@@ -24,14 +24,14 @@ except Exception as e:
 persistent_apps = dock_data.get('persistent-apps', [])
 
 # Check if DexSprite is already added
-app_path = "file:///Applications/DexSprite.app/"
+app_path = "file:///Applications/Dex%20Sprite.app/"
 already_exists = False
 
 for app in persistent_apps:
     tile_data = app.get('tile-data', {})
     file_data = tile_data.get('file-data', {})
     url_str = file_data.get('_CFURLString', '')
-    if app_path.lower() in url_str.lower() or "/Applications/DexSprite.app".lower() in url_str.lower():
+    if app_path.lower() in url_str.lower() or "/Applications/Dex Sprite.app".lower() in url_str.lower():
         already_exists = True
         break
 

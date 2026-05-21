@@ -46,10 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         let mainMenu = NSMenu()
         
         // 1. App Menu (Dex Sprite)
-        let appMenuItem = NSMenuItem()
+        let appMenuItem = NSMenuItem(title: "Dex Sprite", action: nil, keyEquivalent: "")
         mainMenu.addItem(appMenuItem)
         
-        let appMenu = NSMenu()
+        let appMenu = NSMenu(title: "Dex Sprite")
         appMenuItem.submenu = appMenu
         
         // Standard About
@@ -136,6 +136,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
                 completionHandler(savePanel.url)
             } else {
                 completionHandler(nil)
+            }
+        }
+    }
+    
+    // Handle standard HTML file open panels in WKWebView (e.g. file uploads)
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let openPanel = NSOpenPanel()
+        openPanel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        
+        if let window = webView.window {
+            openPanel.beginSheetModal(for: window) { response in
+                if response == .OK {
+                    completionHandler(openPanel.urls)
+                } else {
+                    completionHandler(nil)
+                }
+            }
+        } else {
+            openPanel.begin { response in
+                if response == .OK {
+                    completionHandler(openPanel.urls)
+                } else {
+                    completionHandler(nil)
+                }
             }
         }
     }

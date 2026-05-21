@@ -9,7 +9,7 @@ echo "==> Initializing DexSprite.app compilation..."
 PROJECT_DIR="/Users/andrew/Library/Mobile Documents/com~apple~CloudDocs/Projects/DexSprite"
 SRC_IMAGE="/Users/andrew/.gemini/antigravity/brain/16e50b7e-1277-45da-b3a4-39377d66e189/dex_sprite_app_icon_1779339819995.png"
 BUILD_DIR="$PROJECT_DIR/build"
-APP_BUNDLE="$BUILD_DIR/DexSprite.app"
+APP_BUNDLE="$BUILD_DIR/Dex Sprite.app"
 
 # 1. Clear previous builds
 rm -rf "$BUILD_DIR"
@@ -46,7 +46,7 @@ cp "$PROJECT_DIR/app.js" "$APP_BUNDLE/Contents/Resources/www/app.js"
 
 # 4. Compile main.swift executable
 echo "==> Compiling Swift Cocoa Application Wrapper..."
-swiftc -sdk $(xcrun --show-sdk-path) -target arm64-apple-macosx13.0 "$PROJECT_DIR/src/main.swift" -o "$APP_BUNDLE/Contents/MacOS/DexSprite"
+swiftc -sdk $(xcrun --show-sdk-path) -target arm64-apple-macosx13.0 "$PROJECT_DIR/src/main.swift" -o "$APP_BUNDLE/Contents/MacOS/Dex Sprite"
 
 # 5. Create Info.plist file
 echo "==> Writing Info.plist metadata file..."
@@ -56,7 +56,7 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>DexSprite</string>
+    <string>Dex Sprite</string>
     <key>CFBundleIdentifier</key>
     <string>com.andrew.DexSprite</string>
     <key>CFBundleName</key>
@@ -78,8 +78,9 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
 EOF
 
 # 6. Install to Applications folder
-echo "==> Installing DexSprite.app into /Applications..."
+echo "==> Installing Dex Sprite.app into /Applications..."
 rm -rf "/Applications/DexSprite.app"
-cp -R "$APP_BUNDLE" "/Applications/DexSprite.app"
+rm -rf "/Applications/Dex Sprite.app"
+cp -R "$APP_BUNDLE" "/Applications/Dex Sprite.app"
 
-echo "==> Success! DexSprite.app has been successfully compiled and installed to /Applications/DexSprite.app."
+echo "==> Success! Dex Sprite.app has been successfully compiled and installed to /Applications/Dex Sprite.app."
