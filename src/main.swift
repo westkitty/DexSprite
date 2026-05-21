@@ -6,13 +6,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
     var webView: WKWebView!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Setup Window with unified titlebar
-        let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        // Setup Window with standard resizable native titlebar for easy dragging, closing, and resizing
+        let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1300, height: 880), styleMask: mask, backing: .buffered, defer: false)
         window.center()
         window.title = "Dex Sprite"
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
 

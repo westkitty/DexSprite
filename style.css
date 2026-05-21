@@ -778,20 +778,14 @@ canvas {
     background: rgba(255, 255, 255, 0.16);
 }
 
-/* --- Native App Overrides & Window Dragging --- */
+/* --- Native App Overrides --- */
 .native-app .app-header {
-    -webkit-app-region: drag;
-    padding: 14px 30px 14px 80px; /* Leave 80px left padding for traffic lights */
+    padding: 14px 30px;
     background: rgba(18, 18, 21, 0.6);
     backdrop-filter: blur(30px);
     border-bottom-color: rgba(255, 255, 255, 0.05);
 }
-.native-app .brand h1, 
-.native-app .badge, 
-.native-app .subtitle-deck,
-.native-app .brand {
-    -webkit-app-region: no-drag; /* Let sub-elements remain clickable/selectable */
-}
+
 
 /* UI/UX Glow Backdrops & Pulse Animations */
 .upload-drop-zone.dragover {
