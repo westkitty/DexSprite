@@ -14,6 +14,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
 
+        // Programmatically set Dock icon to bypass macOS Launch Services cached icon issues
+        if let iconPath = Bundle.main.path(forResource: "AppIcon", ofType: "icns") {
+            if let image = NSImage(contentsOfFile: iconPath) {
+                NSApp.applicationIconImage = image
+            }
+        }
+
         // WKWebView configuration
         let config = WKWebViewConfiguration()
         

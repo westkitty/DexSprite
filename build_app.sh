@@ -83,4 +83,13 @@ rm -rf "/Applications/DexSprite.app"
 rm -rf "/Applications/Dex Sprite.app"
 cp -R "$APP_BUNDLE" "/Applications/Dex Sprite.app"
 
-echo "==> Success! Dex Sprite.app has been successfully compiled and installed to /Applications/Dex Sprite.app."
+echo "==> Registering application with macOS Launch Services..."
+# Unregister the intermediate build directory bundle to avoid Launch Services launch conflicts
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u "$APP_BUNDLE"
+# Register the final bundle inside /Applications
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "/Applications/Dex Sprite.app"
+
+echo "==> Flushing macOS Dock & Finder preferences caches..."
+killall Dock || true
+
+echo "==> Success! Dex Sprite.app has been successfully compiled, registered, and installed to /Applications/Dex Sprite.app."

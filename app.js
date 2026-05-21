@@ -197,7 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
             state.spriteW = w;
             state.spriteH = h;
             state.slices = []; // Reinitialize slices array on layout adjustment
-            if (state.sourceImage) sliceAndRecompute();
+            if (state.sourceImage) {
+                sliceAndRecompute();
+                runAutoAlignment();
+                recenterAndFitAll();
+            }
         });
     });
 
@@ -205,7 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', (e) => {
             state.padding = Number(e.target.value);
             state.slices = []; // Reinitialize slices array on layout adjustment
-            if (state.sourceImage) sliceAndRecompute();
+            if (state.sourceImage) {
+                sliceAndRecompute();
+                runAutoAlignment();
+                recenterAndFitAll();
+            }
         });
     });
 
@@ -285,6 +293,14 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnRecenterFit.addEventListener('click', () => {
             playSynthSFX('pop');
             recenterAndFitAll();
+        });
+    }
+    if (els.alignmentModeSelect) {
+        els.alignmentModeSelect.addEventListener('change', () => {
+            if (state.sourceImage) {
+                playSynthSFX('success');
+                runAutoAlignment();
+            }
         });
     }
 
@@ -394,7 +410,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 sliceAndRecompute();
                 enableControlButtons();
-                updateStatus(`Uploaded "${file.name}" (${img.width}x${img.height}px). Slicing grid computed.`);
+
+                // Automatically run auto-alignment and recenter & fit to wow the user on upload!
+                runAutoAlignment();
+                recenterAndFitAll();
+
+                updateStatus(`Uploaded "${file.name}" (${img.width}x${img.height}px). Auto-stabilized and fitted.`);
                 
                 // Play active loop by default
                 playPlayback();
@@ -1518,6 +1539,37 @@ document.addEventListener('DOMContentLoaded', () => {
             avgBottomCenterY = state.spriteH - 2;
         }
         
+        // --- SMART ALIGNMENT METRICS PRE-CALCULATION ---
+        let smartResolvedMode = 'smart-floor';
+        let groundY = state.spriteH - 2;
+        let stdDev = 0;
+        
+        if (mode === 'smart') {
+            const bottoms = framesBounds.filter(b => !b.empty).map(b => b.bottomCenterY);
+            if (bottoms.length > 0) {
+                // Compute standard deviation
+                const avgBottom = bottoms.reduce((sum, val) => sum + val, 0) / bottoms.length;
+                const variance = bottoms.reduce((sum, val) => sum + Math.pow(val - avgBottom, 2), 0) / bottoms.length;
+                stdDev = Math.sqrt(variance);
+                
+                // 75th percentile of bottom coordinates (robust baseline ground detection)
+                const sortedBottoms = [...bottoms].sort((a, b) => a - b);
+                const q75Index = Math.min(sortedBottoms.length - 1, Math.floor(sortedBottoms.length * 0.75));
+                groundY = sortedBottoms[q75Index];
+                
+                // Classify movement pattern based on standard deviation
+                if (stdDev < 2.2) {
+                    smartResolvedMode = 'bottom'; // Pure feet-lock (flat walk/idle)
+                } else if (stdDev < 7.0) {
+                    smartResolvedMode = 'smart-floor'; // Ground lock (preserves walk/run bobbing and stable floor)
+                } else {
+                    smartResolvedMode = 'stabilize'; // High motion/jumping, keep relative vertical displacement
+                }
+            } else {
+                smartResolvedMode = 'stabilize';
+            }
+        }
+        
         // 3. Apply alignment depending on the selected mode
         state.activeSlices.forEach((slice, idx) => {
             const bounds = framesBounds[idx];
@@ -1531,7 +1583,20 @@ document.addEventListener('DOMContentLoaded', () => {
             let targetDx = 0;
             let targetDy = 0;
             
-            if (mode === 'stabilize') {
+            if (mode === 'smart') {
+                if (smartResolvedMode === 'bottom') {
+                    targetDx = bounds.bottomCenterX - (state.spriteW / 2);
+                    targetDy = bounds.bottomCenterY - (state.spriteH - 2);
+                } else if (smartResolvedMode === 'smart-floor') {
+                    // Lock horizontal center of each frame, apply constant ground floor offset vertically to preserve natural bobbing
+                    targetDx = bounds.bottomCenterX - (state.spriteW / 2);
+                    targetDy = groundY - (state.spriteH - 2);
+                } else {
+                    // High variance jumping loop: align horizontally, stabilize vertically based on center-of-mass relative motion
+                    targetDx = bounds.centerX - avgCenterX;
+                    targetDy = bounds.centerY - avgCenterY;
+                }
+            } else if (mode === 'stabilize') {
                 // Align content center to collective average content center
                 targetDx = bounds.centerX - avgCenterX;
                 targetDy = bounds.centerY - avgCenterY;
@@ -1565,7 +1630,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 4. Redraw & update
         sliceAndRecompute(true);
-        updateStatus(`Auto-alignment completed successfully via "${mode}" mode.`);
+        if (mode === 'smart') {
+            updateStatus(`Smart auto-alignment computed successfully! Bounding variance classified as "${smartResolvedMode}" mode (stdDev: ${stdDev.toFixed(2)}px).`);
+        } else {
+            updateStatus(`Auto-alignment completed successfully via "${mode}" mode.`);
+        }
     }
 
     // --- Helper Status logger ---
