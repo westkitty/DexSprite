@@ -1382,9 +1382,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const zoomW = fitW / state.spriteW;
             const zoomH = fitH / state.spriteH;
             
-            // Round to nearest 0.5 step to align with slider
+            // Round to nearest 0.1 step to align with slider
             let idealZoom = Math.min(zoomW, zoomH);
-            idealZoom = Math.max(1, Math.min(16, Math.round(idealZoom * 2) / 2));
+            idealZoom = Math.max(0.1, Math.min(16, Math.round(idealZoom * 10) / 10));
             
             // Update state and UI
             state.playbackZoom = idealZoom;
