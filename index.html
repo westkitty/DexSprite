@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dex Sprite — Premium Retro Asset Compiler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Premium Ambient Blurred Glow Orbs -->
+    <div class="ambient-orbs-container">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+        <div class="ambient-orb orb-3"></div>
+    </div>
+
+    <!-- Beautiful Translucent Fullscreen Drag & Drop Overlay -->
+    <div id="drag-overlay" class="drag-drop-overlay">
+        <div class="drag-overlay-content">
+            <span class="drag-overlay-icon">⚡</span>
+            <h2>Drop Sprite Sheet Anywhere to Import</h2>
+            <p>Indexed quantizer will clamp to standard 15-bit RGB space</p>
+        </div>
+    </div>
+
+    <!-- Floating Copy Confirmation Toast Notification -->
+    <div id="toast-notification" class="toast-popup">
+        <span class="toast-icon">✨</span>
+        <span id="toast-message">Copied color to clipboard!</span>
+    </div>
+
+    <!-- Main Elevating Title Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="header-left-group">
+                <div class="brand">
+                    <h1 class="glow-text">DEX'S SPRITE</h1>
+                    <span class="badge">RETRO COMPILER</span>
+                </div>
+                <div class="subtitle-deck">
+                    <p>Offline High-Fidelity Asset Stabilization Engine — Zero AI Drifts</p>
+                </div>
+            </div>
+            <div class="header-right-group">
+                <div class="theme-selector-deck">
+                    <span class="theme-label">Theme</span>
+                    <select id="theme-select" class="premium-select theme-select-box">
+                        <option value="cyber-neon">⚡ Cyber Neon</option>
+                        <option value="emerald">💚 Emerald Hacker</option>
+                        <option value="retro-gb">👾 Retro GameBoy</option>
+                        <option value="vaporwave">🌸 Vaporwave</option>
+                        <option value="amber-crt">📟 Amber CRT</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Core App Dashboard Workspace -->
+    <main class="app-workspace">
+        <div class="dashboard-grid">
+
+            <!-- COLUMN 1: CONFIGURATION & LOADING -->
+            <section class="panel-card config-panel">
+                <div class="panel-header">
+                    <h2>PIPELINE INPUT & SETTINGS</h2>
+                </div>
+                <div class="panel-content">
+                    <!-- Premium Drag & Drop Area -->
+                    <div id="drop-zone" class="upload-drop-zone">
+                        <div class="drop-zone-content">
+                            <span class="upload-icon">📂</span>
+                            <h3>Drag & Drop Sprite Sheet</h3>
+                            <p>PNG, JPG, BMP, or WebP sprite grids</p>
+                            <span class="browse-btn">Browse File</span>
+                        </div>
+                        <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    </div>
+
+                    <!-- Slice Boundary Size Controls -->
+                    <div class="control-group">
+                        <label class="group-title">Sprite Dimension Bounds (PPU Cell)</label>
+                        <div class="radio-tile-group">
+                            <label class="radio-tile-btn">
+                                <input type="radio" name="sprite-size" value="16x16">
+                                <div class="tile-content">
+                                    <span class="tile-label">16 x 16</span>
+                                    <span class="tile-desc">Standard Block</span>
+                                </div>
+                            </label>
+                            <label class="radio-tile-btn">
+                                <input type="radio" name="sprite-size" value="16x32">
+                                <div class="tile-content">
+                                    <span class="tile-label">16 x 32</span>
+                                    <span class="tile-desc">Platformer</span>
+                                </div>
+                            </label>
+                            <label class="radio-tile-btn">
+                                <input type="radio" name="sprite-size" value="32x32" checked>
+                                <div class="tile-content">
+                                    <span class="tile-label">32 x 32</span>
+                                    <span class="tile-desc">Large Sprite</span>
+                                </div>
+                            </label>
+                            <label class="radio-tile-btn">
+                                <input type="radio" name="sprite-size" value="64x64">
+                                <div class="tile-content">
+                                    <span class="tile-label">64 x 64</span>
+                                    <span class="tile-desc">Boss Scale</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Bleed Protection Gutters -->
+                    <div class="control-group">
+                        <label class="group-title">Bleed Protection Gutter</label>
+                        <div class="segment-control">
+                            <label class="segment-btn">
+                                <input type="radio" name="gutter-size" value="0">
+                                <span class="segment-label">0 px</span>
+                            </label>
+                            <label class="segment-btn">
+                                <input type="radio" name="gutter-size" value="1" checked>
+                                <span class="segment-label">1 px Gutter</span>
+                            </label>
+                            <label class="segment-btn">
+                                <input type="radio" name="gutter-size" value="2">
+                                <span class="segment-label">2 px Gutters</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Retro Preset Selector -->
+                    <div class="control-group">
+                        <label class="group-title">Retro Console System Preset</label>
+                        <div class="select-wrapper">
+                            <select id="preset-select" class="premium-select">
+                                <option value="custom">Custom 15-Bit clamped RGB (Median Cut)</option>
+                                <option value="gb">GameBoy Classic (4-Shade Green)</option>
+                                <option value="gbc">GameBoy Color (15 Colors + Transparent)</option>
+                                <option value="nes">NES Classic Palette</option>
+                                <option value="pico8">PICO-8 16-Color Palette</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Dither Selectors -->
+                    <div class="control-group">
+                        <label class="group-title">Quantization Dither Matrix</label>
+                        <div class="select-wrapper">
+                            <select id="dither-select" class="premium-select">
+                                <option value="none">None (Clean Paletted Solid Blocks)</option>
+                                <option value="floyd">Floyd-Steinberg (Error Diffusion)</option>
+                                <option value="bayer">Bayer 4x4 (Classic ordered mesh pattern)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Playback loop rate control -->
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <label class="group-title">Playback Rate</label>
+                            <span id="fps-readout" class="badge">10 FPS</span>
+                        </div>
+                        <input type="range" id="fps-slider" min="1" max="30" value="10" class="premium-slider">
+                    </div>
+
+                    <!-- Color Swatches Deck -->
+                    <div class="control-group swatch-control-group">
+                        <label class="group-title">Compiled Color Table (Click to Copy)</label>
+                        <div id="palette-swatches" class="palette-swatches-grid">
+                            <!-- Populated dynamically -->
+                            <div class="swatch-empty-msg">No palette extracted yet</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMN 2: INTERACTIVE SLICER & ATLAS PREVIEW -->
+            <section class="panel-card canvas-panel">
+                <div class="panel-header tab-header">
+                    <button id="tab-slicer" class="tab-btn active">Interactive Sheet Slicer</button>
+                    <button id="tab-atlas" class="tab-btn">Compiled Texture Atlas</button>
+                </div>
+                <div class="panel-content viewport-content">
+                    
+                    <!-- Tab Content 1: Slicer Canvas -->
+                    <div id="tab-content-slicer" class="tab-pane active">
+                        <div class="slicer-controls-bar">
+                            <div class="zoom-segment-container">
+                                <div class="flex-row-space-between">
+                                    <label class="group-title">Slicer Zoom</label>
+                                    <button id="btn-magic-slice" class="magic-btn" title="Scan transparency & filter out empty cells">🪄 Auto-Filter Empty</button>
+                                </div>
+                                <div class="segment-control zoom-control">
+                                    <label class="segment-btn">
+                                        <input type="radio" name="slicer-zoom" value="fit" checked>
+                                        <span class="segment-label">Auto Fit</span>
+                                    </label>
+                                    <label class="segment-btn">
+                                        <input type="radio" name="slicer-zoom" value="1">
+                                        <span class="segment-label">1x</span>
+                                    </label>
+                                    <label class="segment-btn">
+                                        <input type="radio" name="slicer-zoom" value="2">
+                                        <span class="segment-label">2x</span>
+                                    </label>
+                                    <label class="segment-btn">
+                                        <input type="radio" name="slicer-zoom" value="4">
+                                        <span class="segment-label">4x</span>
+                                    </label>
+                                    <label class="segment-btn">
+                                        <input type="radio" name="slicer-zoom" value="8">
+                                        <span class="segment-label">8x</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="canvas-container checkerboard-bg scrollable-canvas-container">
+                            <canvas id="slicer-canvas"></canvas>
+                        </div>
+                        <p class="canvas-help-text">Click individual cells on the grid to include/exclude them from the animation pipeline</p>
+                    </div>
+
+                    <!-- Tab Content 2: Compiled Atlas Canvas -->
+                    <div id="tab-content-atlas" class="tab-pane">
+                        <div class="canvas-container checkerboard-bg">
+                            <canvas id="atlas-canvas"></canvas>
+                        </div>
+                        <p class="canvas-help-text">Direct 15-bit quantized PNG compiled output with locked transparent magenta gutters</p>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- COLUMN 3: ALIGNMENT VIEWPORT & ACTIONS -->
+            <section class="panel-card alignment-panel">
+                <div class="panel-header">
+                    <h2>DRIFT ALIGNMENT EDITOR</h2>
+                </div>
+                <div class="panel-content viewport-content flex-column">
+                    
+                    <!-- Looping alignment registration viewport -->
+                    <div class="canvas-container checkerboard-bg relative">
+                        <canvas id="playback-canvas"></canvas>
+                        <div class="crosshair-indicator"></div>
+                    </div>
+                    
+                    <!-- Zoom Scale Slider for Stabilizer -->
+                    <div class="control-group zoom-slider-group">
+                        <div class="slider-header">
+                            <label class="group-title">Stabilizer Zoom Scale</label>
+                            <span id="playback-zoom-readout" class="badge">4.0x</span>
+                        </div>
+                        <input type="range" id="playback-zoom-slider" min="1" max="16" step="0.5" value="4" class="premium-slider">
+                    </div>
+
+                    <!-- Onion Skinning & Retro SFX controls -->
+                    <div class="control-group toggles-row">
+                        <label class="premium-toggle">
+                            <input type="checkbox" id="chk-onion-skin">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">🧅 Onion Skin</span>
+                        </label>
+                        <label class="premium-toggle">
+                            <input type="checkbox" id="chk-retro-sfx">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">🔊 Retro SFX</span>
+                        </label>
+                    </div>
+
+                    <p class="canvas-help-text">Click and drag inside loop to offset cell coordinates (eliminates vertical/horizontal jitter)</p>
+
+                    <!-- Animation Filmstrip Strip -->
+                    <div class="control-group timeline-strip-group">
+                        <label class="group-title">Animation Filmstrip</label>
+                        <div id="filmstrip-container" class="filmstrip-scroll-container">
+                            <div class="filmstrip-empty-msg">No active animation loop loaded</div>
+                        </div>
+                    </div>
+
+                    <!-- Frame Info deck -->
+                    <div class="frame-data-deck">
+                        <div class="data-row">
+                            <span class="lbl">Active Frame:</span>
+                            <span id="frame-counter" class="val">No frame loaded</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="lbl">Pivot Offset:</span>
+                            <span id="offset-readout" class="val">X: +0px, Y: +0px</span>
+                        </div>
+                    </div>
+
+                    <!-- Control buttons deck -->
+                    <div class="control-deck">
+                        <button id="btn-prev" class="deck-btn" disabled>⏮ Prev</button>
+                        <button id="btn-play" class="deck-btn accent-btn" disabled>⏸ Pause</button>
+                        <button id="btn-next" class="deck-btn" disabled>Next ⏭</button>
+                        <button id="btn-toggle-active" class="deck-btn danger-btn" disabled>Disable</button>
+                        <button id="btn-reset" class="deck-btn warning-btn" disabled>Reset</button>
+                    </div>
+
+                    <div class="action-divider"></div>
+
+                    <!-- Exporters Deck -->
+                    <div class="export-deck">
+                        <button id="btn-export-png" class="export-btn success" disabled>
+                            <span class="icon">💾</span>
+                            <div class="btn-text-block">
+                                <span class="primary">Export Sprite Sheet</span>
+                                <span class="secondary">Clamped 15-bit Indexed PNG</span>
+                            </div>
+                        </button>
+                        
+                        <button id="btn-export-gif" class="export-btn orange" disabled>
+                            <span class="icon">🎥</span>
+                            <div class="btn-text-block">
+                                <span class="primary">Export Diagnostic Loop</span>
+                                <span class="secondary">Transparent 16-color looping GIF</span>
+                            </div>
+                        </button>
+                        
+                        <button id="btn-export-html" class="export-btn blue" disabled>
+                            <span class="icon">🌐</span>
+                            <div class="btn-text-block">
+                                <span class="primary">Export HTML5 Sandbox</span>
+                                <span class="secondary">Interactive Canvas Playground</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Floating status alerts bar -->
+    <footer class="app-status-bar">
+        <div class="status-container">
+            <span class="status-bullet active"></span>
+            <span id="status-text">Ready. Please upload an image sequence sheet to begin retro asset compiling.</span>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

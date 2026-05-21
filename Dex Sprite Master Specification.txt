@@ -1,0 +1,865 @@
+﻿SYSTEM INSTRUCTION: Build "Dex Sprite" (DEX’s Sprite)
+Role: Senior Systems Architect & Retro Graphics Engineer
+Target Platform: macOS (Optimized for Apple Silicon M1, 8GB Unified Memory)
+Execution Paradigm: Offline, high-fidelity mathematical image transformation pipeline. No ML/Generative AI dependencies.
+1. Executive Summary & Design Philosophy
+Dex Sprite is a professional, offline macOS desktop utility engineered to convert modern high-resolution animation sequences into retro-accurate, hardware-constrained Super Nintendo (SNES) sprite sheets, diagnostic looping GIFs, and instant HTML5 playtest code.
+Core Problems Solved:
+* The Consistency Problem: Generative AI engines cannot maintain frame-to-frame pixel registration. Dex Sprite uses deterministic mathematics to guarantee pixel-perfect stability across animation cycles.
+* The Drift Problem (Manual Registration): If input frames are of varying sizes or slightly off-center, standard compilers produce "jittery" animations. Dex Sprite introduces an interactive crosshair registration tool to manually offset and anchor each frame's pivot point.
+* The Gradient Problem (Retro Dithering): Downsampling smooth modern gradients to a strict 15-color palette produces ugly color banding. Dex Sprite implements classic Bayer    and Floyd-Steinberg dithering algorithms to recreate authentic retro shading.
+2. Technical Specifications & Hardware Constants
++-------------------------------------------------------------------------------------------------+
+|                                     DEX SPRITE PIPELINE ENGINE                                  |
++=================================================================================================+
+|  [Raw Inputs] -> [Stabilize Camera] -> [Nearest-Neighbor Scaling] -> [Quantization & Dithering]   |
+|                                                                                                 |
+|  [Color Depth Clamp] -> [Chroma Key #FF00FF Injection] -> [Grid Packing Matrix with Gutters]   |
+|                                                                                                 |
+|  Outputs:                                                                                       |
+|  ├─► [Spritesheet PNG]: 8-bit Indexed Texture Atlas with locked PLTE Chunk                      |
+|  ├─► [Diagnostic GIF]: Alpha-masked loop synchronized to exact engine tick millisecond delays   |
+|  └─► [HTML5 Playtest Sandbox]: Direct runnable local index.html with frame render engine        |
++-------------------------------------------------------------------------------------------------+
+
+2.1. The Graphics Processing Unit (PPU) Boundary
+   * Output Color Space: 15-bit RGB. The PPU can only reference 5 bits per color channel (   colors total). The compiler must mathematically strip the 8-bit channels of modern source files:
+  
+   * Sprite Hardware Grids: Frames are aligned strictly to bounding sizes:   ,    (for tall player sprites),   , or    pixels.
+   * Color Budgeting: 15 active display colors + 1 transparent chroma key (Index 15 is hard-locked to Magenta #FF00FF to denote transparency).
+3. UI/UX Interface Design & Desktop Architecture
+The application is presented as a high-density, single-window workspace utilizing macOS Dark Mode values.
++-----------------------------------------------------------------------------------------------+
+| [⚙️] Dex Sprite                                                                                |
++-----------------------------------------------------------------------------------------------+
+| [ Drag & Drop Folder Area: /Users/andrew/projects/player_run/                               ] |
+|                                                                                               |
+|  Configuration Panel (Right Align)                     Viewport Display Canvas (Left Align)   |
+|  +-----------------------------------+                 +-----------------------------------+  |
+|  | SPRITE FORMAT                      |                 |                                   |  |
+|  | [ ] 16x16   [x] 16x32   [ ] 32x32 |                 |       ACTIVE ATLA VIEWPORT        |  |
+|  |                                   |                 |  +-----------------------------+  |  |
+|  | PALETTE CONSTRAINTS               |                 |  | (Magenta Grid Separators)   |  |  |
+|  | (•) SNES Strict (15 Colors + Trans)|                 |  |  [Frame 1]  [Frame 2]        |  |  |
+|  | ( ) GBA Expanded (256 Colors)     |                 |  |  [Frame 3]  [Frame 4]        |  |  |
+|  |                                   |                 |  +-----------------------------+  |  |
+|  | COLOR DITHERING ALGORITHM         |                 +-----------------------------------+  |
+|  | ( ) None (Clean Solid Blocks)      |                                                        |
+|  | (•) Floyd-Steinberg (Error Diffuse)|                 Diagnostic Playback & Editor        |
+|  | ( ) Bayer 4x4 (Classic Mesh Grid)  |                 +-----------------------------------+  |
+|  |                                   |                 |                                   |  |
+|  | CELL SPACING (BLEED GUARD)        |                 |      [ PLAYBACK VIEWPORT ]        |  |
+|  | [x] 1-Pixel Separator Gutter      |                 |                                   |  |
+|  |                                   |                 |  Click and drag on the active     |  |
+|  | ENGINE SPEED CONTROL              |                 |  frame to manually adjust offset  |  |
+|  | [ 12 FPS ] (Slider 1 - 30 FPS)    |                 |  crosshair: (X: +2px, Y: -1px)    |  |
+|  |                                   |                 |                                   |  |
+|  +-----------------------------------+                 +-----------------------------------+  |
+|                                                                                               |
+|  Timeline Strip:                                                                              |
+|  [x] Frame 1 (dx:0, dy:0)  [x] Frame 2 (dx:+1, dy:-2)  [x] Frame 3 (dx:0, dy:0)  [x] Frame 4  |
+|                                                                                               |
+|  [ RUN PIPELINE EXPORT ]                                                   Status: Ready      |
++-----------------------------------------------------------------------------------------------+
+
+Visual and Interactive Paradigms:
+      * The Checkerboard Alpha Canvas: All viewports must render a custom high-contrast grey/dark-grey checkerboard layer underneath the processed images to represent alpha space.
+      * Manual Registration Modifiers: Clicking and dragging on the active frame inside the Playback Viewport updates the target offset values (  ) in real time. This offsets how the specific frame is cropped and pasted onto the final sheet, letting you manually align the character's feet or eyes to eliminate frame jump.
+      * Non-Bilinear Scaling: All scaling of visual elements on screen must use the .nearest magnification filter to display crisp, non-blurry pixels.
+4. Production-Ready Python Application Core
+This fully optimized script provides the graphical user interface and processing logic. It runs locally on your M1 MacBook Air using standard libraries and the Pillow processing framework.
+Save this script as app.py in your development directory.
+"""
+Dex Sprite — Professional Retro Asset Compiler and Frame Alignment Tool
+Designed for macOS (Apple Silicon M1, 8GB Unified Memory optimization)
+Dependencies: pip install Pillow
+"""
+
+import os
+import math
+import sys
+import gc
+import tkinter as tk
+from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk, ImageDraw
+
+class DexSpriteApp:
+   def __init__(self, root):
+       self.root = root
+       self.root.title("Dex Sprite — Retro Asset Compiler")
+       self.root.geometry("1200x800")
+       self.root.minsize(1000, 700)
+       
+       # macOS Dark Mode Color Token Palette
+       self.bg_color = "#1E1E1E"
+       self.panel_color = "#2D2D2D"
+       self.accent_color = "#0A84FF"
+       self.success_color = "#30D158"
+       self.warning_color = "#FF9F0A"
+       self.text_color = "#FFFFFF"
+       self.muted_text = "#A0A0A0"
+       self.border_color = "#3A3A3C"
+       
+       self.root.configure(bg=self.bg_color)
+       
+       # Engine State Management
+       self.source_dir = ""
+       self.frames_list = []       # Strings containing original system paths
+       self.active_frames = []     # List of Boolean values for frame toggles
+       self.offsets = []           # List of tuples: [(dx, dy), ...] for manual alignment adjustment
+       self.processed_frames = []  # List of PIL Images formatted to palette
+       self.master_palette = []    # Clamped 15-bit retro RGB palette block
+       self.sprite_sheet_img = None
+       self.preview_tk_images = [] # Active UI Image instances
+       
+       # Selected Interactive Frame
+       self.selected_timeline_index = 0
+       self.drag_start_x = 0
+       self.drag_start_y = 0
+       
+       # Looped Playback Controls
+       self.animation_index = 0
+       self.animation_job = None
+       
+       self.build_ui()
+       
+   def build_ui(self):
+       # Configure Grid Weights
+       self.root.columnconfigure(0, weight=1)
+       self.root.rowconfigure(1, weight=1)
+       
+       # --- Upper Title Header Panel ---
+       top_panel = tk.Frame(self.root, bg=self.panel_color, height=55, bd=1, relief="flat")
+       top_panel.grid(row=0, column=0, columnspan=2, sticky="ew")
+       top_panel.pack_propagate(False)
+       
+       title_lbl = tk.Label(top_panel, text="DEX'S SPRITE", font=("Helvetica Neue", 16, "bold"), fg=self.text_color, bg=self.panel_color)
+       title_lbl.pack(side="left", padx=20)
+       
+       info_lbl = tk.Label(top_panel, text="Retro Asset Engine • Zero-AI Stability Pipeline", font=("Helvetica Neue", 10), fg=self.muted_text, bg=self.panel_color)
+       info_lbl.pack(side="left", padx=5)
+       
+       # --- Core Application Split-Screen Layout ---
+       workspace = tk.Frame(self.root, bg=self.bg_color)
+       workspace.grid(row=1, column=0, sticky="nsew", padx=15, pady=15)
+       workspace.columnconfigure(0, weight=3) # Left viewports
+       workspace.columnconfigure(1, weight=1) # Right configuration panel
+       workspace.rowconfigure(0, weight=1)
+       
+       # Viewports Frame (Left Side, Splits horizontally)
+       viewports_frame = tk.Frame(workspace, bg=self.bg_color)
+       viewports_frame.grid(row=0, column=0, sticky="nsew")
+       viewports_frame.columnconfigure(0, weight=1)
+       viewports_frame.columnconfigure(1, weight=1)
+       viewports_frame.rowconfigure(0, weight=1)
+       
+       # Left Viewport: Texture Atlas Sheet Compiler
+       self.atlas_container = tk.LabelFrame(viewports_frame, text=" Texture Atlas View ", fg=self.text_color, bg=self.panel_color, bd=1, relief="solid", font=("Helvetica Neue", 12, "bold"))
+       self.atlas_container.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+       self.atlas_container.columnconfigure(0, weight=1)
+       self.atlas_container.rowconfigure(0, weight=1)
+       
+       self.atlas_canvas = tk.Canvas(self.atlas_container, bg="#111111", bd=0, highlightthickness=0)
+       self.atlas_canvas.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+       
+       # Right Viewport: Live Alignment Editor
+       self.preview_container = tk.LabelFrame(viewports_frame, text=" Live Registration Alignment View ", fg=self.text_color, bg=self.panel_color, bd=1, relief="solid", font=("Helvetica Neue", 12, "bold"))
+       self.preview_container.grid(row=0, column=1, sticky="nsew")
+       self.preview_container.columnconfigure(0, weight=1)
+       self.preview_container.rowconfigure(0, weight=1)
+       
+       self.preview_canvas = tk.Canvas(self.preview_container, bg="#111111", bd=0, highlightthickness=0)
+       self.preview_canvas.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+       
+       # Bind interactive mouse dragging behaviors directly to the alignment editor viewport
+       self.preview_canvas.bind("<ButtonPress-1>", self.start_registration_drag)
+       self.preview_canvas.bind("<B1-Motion>", self.execute_registration_drag)
+       
+       # --- Right Control & Parameter Panel ---
+       controls_frame = tk.Frame(workspace, bg=self.panel_color, width=330, bd=1, relief="solid")
+       controls_frame.grid(row=0, column=1, sticky="nsew", padx=(15, 0))
+       controls_frame.pack_propagate(False)
+       
+       # Drag and Drop Folder Setup
+       dir_lbl = tk.Label(controls_frame, text="SOURCE DIRECTORY", font=("Helvetica Neue", 10, "bold"), fg=self.muted_text, bg=self.panel_color)
+       dir_lbl.pack(anchor="w", padx=15, pady=(15, 5))
+       
+       self.btn_select_dir = tk.Button(controls_frame, text="Load Frame Sequence Folder", bg=self.accent_color, fg="white", highlightbackground=self.panel_color, relief="flat", command=self.load_directory)
+       self.btn_select_dir.pack(fill="x", padx=15)
+       
+       self.lbl_selected_dir = tk.Label(controls_frame, text="No active directory loaded.", font=("Helvetica Neue", 10), fg=self.muted_text, bg=self.panel_color, wraplength=290, justify="left")
+       self.lbl_selected_dir.pack(anchor="w", padx=15, pady=(5, 12))
+       
+       sep1 = tk.Frame(controls_frame, bg=self.border_color, height=1)
+       sep1.pack(fill="x", padx=15, pady=5)
+       
+       # Grid Size Selector
+       dim_lbl = tk.Label(controls_frame, text="SPRITE DIMENSIONAL BOUNDS", font=("Helvetica Neue", 10, "bold"), fg=self.muted_text, bg=self.panel_color)
+       dim_lbl.pack(anchor="w", padx=15, pady=(10, 5))
+       
+       self.size_var = tk.StringVar(value="32x32")
+       sizes = [("16 x 16 Standard", "16x16"), ("16 x 32 Platformer (Tall)", "16x32"), ("32 x 32 Standard Large", "32x32"), ("64 x 64 Boss Scale", "64x64")]
+       for text, val in sizes:
+           rb = tk.Radiobutton(controls_frame, text=text, variable=self.size_var, value=val, fg=self.text_color, bg=self.panel_color, selectcolor=self.bg_color, activebackground=self.panel_color, activeforeground=self.text_color, font=("Helvetica Neue", 10), command=self.recompute)
+           rb.pack(anchor="w", padx=25, pady=2)
+           
+       sep2 = tk.Frame(controls_frame, bg=self.border_color, height=1)
+       sep2.pack(fill="x", padx=15, pady=10)
+       
+       # Dithering Controls
+       dither_lbl = tk.Label(controls_frame, text="PALETTE QUANTIZATION DITHER", font=("Helvetica Neue", 10, "bold"), fg=self.muted_text, bg=self.panel_color)
+       dither_lbl.pack(anchor="w", padx=15, pady=(5, 5))
+       
+       self.dither_var = tk.StringVar(value="none")
+       dithers = [("None (Clean Solid Mapping)", "none"), ("Floyd-Steinberg (Error Diffusion)", "floyd"), ("Bayer 4x4 (Mesh Retro Pattern)", "bayer")]
+       for text, val in dithers:
+           rb = tk.Radiobutton(controls_frame, text=text, variable=self.dither_var, value=val, fg=self.text_color, bg=self.panel_color, selectcolor=self.bg_color, activebackground=self.panel_color, activeforeground=self.text_color, font=("Helvetica Neue", 10), command=self.recompute)
+           rb.pack(anchor="w", padx=25, pady=2)
+           
+       sep3 = tk.Frame(controls_frame, bg=self.border_color, height=1)
+       sep3.pack(fill="x", padx=15, pady=10)
+       
+       # Cell Separation Spacing
+       pad_lbl = tk.Label(controls_frame, text="BLEED PROTECTION GUTTER", font=("Helvetica Neue", 10, "bold"), fg=self.muted_text, bg=self.panel_color)
+       pad_lbl.pack(anchor="w", padx=15, pady=(5, 5))
+       
+       self.pad_var = tk.IntVar(value=1)
+       paddings = [("0 px (Tight Sheet)", 0), ("1 px Standard Gutter", 1), ("2 px Safe Margin Gutter", 2)]
+       for text, val in paddings:
+           rb = tk.Radiobutton(controls_frame, text=text, variable=self.pad_var, value=val, fg=self.text_color, bg=self.panel_color, selectcolor=self.bg_color, activebackground=self.panel_color, activeforeground=self.text_color, font=("Helvetica Neue", 10), command=self.recompute)
+           rb.pack(anchor="w", padx=25, pady=2)
+           
+       sep4 = tk.Frame(controls_frame, bg=self.border_color, height=1)
+       sep4.pack(fill="x", padx=15, pady=10)
+       
+       # FPS Settings
+       fps_lbl = tk.Label(controls_frame, text="DIAGNOSTIC PLAYBACK RATE", font=("Helvetica Neue", 10, "bold"), fg=self.muted_text, bg=self.panel_color)
+       fps_lbl.pack(anchor="w", padx=15, pady=(5, 5))
+       
+       self.fps_var = tk.IntVar(value=10)
+       self.fps_slider = tk.Scale(controls_frame, from_=1, to=30, orient="horizontal", variable=self.fps_var, bg=self.panel_color, fg=self.text_color, highlightbackground=self.panel_color, activebackground=self.accent_color, font=("Helvetica Neue", 10), command=self.on_fps_change)
+       self.fps_slider.pack(fill="x", padx=25, pady=5)
+       
+       # Compile Actions
+       self.btn_compile = tk.Button(controls_frame, text="💾 Export Sprite Sheet (PNG)", bg=self.success_color, fg="white", highlightbackground=self.panel_color, font=("Helvetica Neue", 11, "bold"), relief="flat", state="disabled", command=self.export_png)
+       self.btn_compile.pack(fill="x", padx=15, pady=(20, 4))
+       
+       self.btn_export_gif = tk.Button(controls_frame, text="🎥 Export Playback Loop (GIF)", bg=self.warning_color, fg="white", highlightbackground=self.panel_color, font=("Helvetica Neue", 11, "bold"), relief="flat", state="disabled", command=self.export_gif)
+       self.btn_export_gif.pack(fill="x", padx=15, pady=4)
+       
+       self.btn_export_html = tk.Button(controls_frame, text="🌐 Export HTML5 Playtest Sandbox", bg=self.accent_color, fg="white", highlightbackground=self.panel_color, font=("Helvetica Neue", 11, "bold"), relief="flat", state="disabled", command=self.export_html5)
+       self.btn_export_html.pack(fill="x", padx=15, pady=4)
+       
+       # --- Bottom Timeline Status Deck ---
+       bottom_panel = tk.Frame(self.root, bg=self.panel_color, height=90, bd=1, relief="solid")
+       bottom_panel.grid(row=2, column=0, columnspan=2, sticky="ew")
+       bottom_panel.pack_propagate(False)
+       
+       # Active status readout
+       self.status_var = tk.StringVar(value="System Active. Please select an input folder of sequential animation frames to begin.")
+       self.status_lbl = tk.Label(bottom_panel, textvariable=self.status_var, font=("Helvetica Neue", 11), fg=self.text_color, bg=self.panel_color)
+       self.status_lbl.pack(side="top", anchor="w", padx=20, pady=(10, 5))
+       
+       # Horizontal Frame Tracker timeline selector info
+       self.frame_info_var = tk.StringVar(value="Frame Track: No data loaded.")
+       self.frame_info_lbl = tk.Label(bottom_panel, textvariable=self.frame_info_var, font=("Helvetica Neue", 10, "italic"), fg=self.muted_text, bg=self.panel_color)
+       self.frame_info_lbl.pack(side="top", anchor="w", padx=20)
+       
+   def load_directory(self):
+       selected = filedialog.askdirectory(title="Select Folder containing sequential image sequences")
+       if not selected:
+           return
+           
+       self.source_dir = selected
+       self.lbl_selected_dir.configure(text=self.source_dir)
+       
+       # Scan for standardized image extensions
+       extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')
+       self.frames_list = sorted([
+           os.path.join(self.source_dir, f) 
+           for f in os.listdir(self.source_dir) 
+           if f.lower().endswith(extensions)
+       ])
+       
+       if not self.frames_list:
+           messagebox.showerror("No Images Found", "The selected folder does not contain any compatible image formats.")
+           return
+           
+       # Initialize Frame Timeline variables
+       self.active_frames = [True] * len(self.frames_list)
+       self.offsets = [(0, 0)] * len(self.frames_list)
+       self.selected_timeline_index = 0
+       
+       self.status_var.set(f"Loaded {len(self.frames_list)} frames. Click on preview panel to manually drag/align pixel drift.")
+       self.recompute()
+       
+   def recompute(self):
+       """Main pipeline: resizes, quantizes, applies dithering and compiles the spritesheet."""
+       if not self.frames_list:
+           return
+           
+       if self.animation_job:
+           self.root.after_cancel(self.animation_job)
+           self.animation_job = None
+           
+       # Parse configurations
+       size_str = self.size_var.get()
+       w_str, h_str = size_str.split("x")
+       sprite_w, sprite_h = int(w_str), int(h_str)
+       padding = self.pad_var.get()
+       dither_type = self.dither_var.get()
+       
+       # 1. Sequential Image Downsampling (Nearest-Neighbor)
+       raw_resized_frames = []
+       for i, file_path in enumerate(self.frames_list):
+           if self.active_frames[i]:
+               try:
+                   img = Image.open(file_path).convert("RGB")
+                   
+                   # Cut out crop box using manually set timeline offsets (dx, dy)
+                   dx, dy = self.offsets[i]
+                   crop_box = (dx, dy, dx + img.width, dy + img.height)
+                   offset_canvas = Image.new("RGB", img.size, color=(128, 128, 128))
+                   offset_canvas.paste(img.crop(crop_box), (0,0))
+                   
+                   # Convert via Nearest Neighbor
+                   resized_img = offset_canvas.resize((sprite_w, sprite_h), Image.Resampling.NEAREST)
+                   raw_resized_frames.append(resized_img)
+               except Exception as e:
+                   print(f"Failed to process frame {file_path}: {e}")
+                   
+       if not raw_resized_frames:
+           self.status_var.set("Error: All frames inactive. Please check at least one timeline frame.")
+           return
+           
+       # 2. Build Multi-frame composite in-memory to resolve global palette variables
+       combined_width = sprite_w * len(raw_resized_frames)
+       comp_canvas = Image.new("RGB", (combined_width, sprite_h))
+       for idx, img in enumerate(raw_resized_frames):
+           comp_canvas.paste(img, (idx * sprite_w, 0))
+           
+       # 3. Median Cut Clustering down to 15 colors
+       global_quantized = comp_canvas.quantize(colors=15, method=Image.Quantize.MEDIANCUT)
+       raw_palette_bytes = global_quantized.getpalette()[:45]
+       
+       # 4. Clamp raw 24-bit RGB values to 15-bit retro space
+       clamped_palette = []
+       for val in raw_palette_bytes:
+           five_bit_val = val // 8
+           clamped_val = five_bit_val * 8
+           clamped_palette.append(clamped_val)
+           
+       # Set transparent color index (15) to classic Magenta #FF00FF
+       clamped_palette.extend([255, 0, 255])
+       while len(clamped_palette) < 768:
+           clamped_palette.extend([0, 0, 0])
+           
+       self.master_palette = clamped_palette
+       
+       # Build strict palette template structure
+       pal_template = Image.new("P", (1, 1))
+       pal_template.putpalette(self.master_palette)
+       
+       # 5. Apply quantization and configured dither matrix
+       self.processed_frames = []
+       for raw_frame in raw_resized_frames:
+           if dither_type == "none":
+               clamped_frame = raw_frame.quantize(palette=pal_template, dither=Image.Dither.NONE)
+           elif dither_type == "floyd":
+               clamped_frame = raw_frame.quantize(palette=pal_template, dither=Image.Dither.FLOYDSTEINBERG)
+           elif dither_type == "bayer":
+               # Manual implementation of Bayer 4x4 Ordered Matrix Dithering
+               clamped_frame = self.apply_bayer_dither(raw_frame, pal_template)
+           else:
+               clamped_frame = raw_frame.quantize(palette=pal_template, dither=Image.Dither.NONE)
+               
+           self.processed_frames.append(clamped_frame)
+           
+       # 6. Assemble Sprite Sheet Output Canvas Map
+       num_frames = len(self.processed_frames)
+       cols = math.ceil(math.sqrt(num_frames))
+       rows = math.ceil(num_frames / cols)
+       
+       sheet_w = (sprite_w * cols) + (padding * (cols + 1))
+       sheet_h = (sprite_h * rows) + (padding * (rows + 1))
+       
+       self.sprite_sheet_img = Image.new("P", (sheet_w, sheet_h), color=15)
+       self.sprite_sheet_img.putpalette(self.master_palette)
+       
+       for index, frame in enumerate(self.processed_frames):
+           c_col = index % cols
+           c_row = index // cols
+           x = (c_col * sprite_w) + (padding * (c_col + 1))
+           y = (c_row * sprite_h) + (padding * (c_row + 1))
+           self.sprite_sheet_img.paste(frame, (x, y))
+           
+       # Refresh screen renders
+       self.render_atlas_viewport()
+       self.setup_animation_loop()
+       
+       # Enable interface operations
+       self.btn_compile.configure(state="normal")
+       self.btn_export_gif.configure(state="normal")
+       self.btn_export_html.configure(state="normal")
+       
+       # Garbage collect and flush unused objects to keep memory usage low on 8GB machines
+       gc.collect()
+       
+   def apply_bayer_dither(self, img_pil, pal_template):
+       """Applies a classic 4x4 Bayer ordered dither matrix to an RGB image."""
+       width, height = img_pil.size
+       pixels = img_pil.load()
+       
+       # Standard Bayer 4x4 matrix normalized values (scale: 0-255)
+       bayer_matrix = [
+           [  0, 128,  32, 160],
+           [192,  64, 224,  96],
+           [ 48, 176,  16, 144],
+           [240, 112, 208,  80]
+       ]
+       
+       # Apply matrix offset directly to channel colors to create retro halftone meshes
+       dithered_img = Image.new("RGB", (width, height))
+       dithered_pix = dithered_img.load()
+       
+       for y in range(height):
+           for x in range(width):
+               factor = (bayer_matrix[y % 4][x % 4] / 255.0) - 0.5
+               r, g, b = pixels[x, y]
+               
+               # Apply dither shift factor
+               offset = int(factor * 48)  # Strength constant
+               dithered_pix[x, y] = (
+                   max(0, min(255, r + offset)),
+                   max(0, min(255, g + offset)),
+                   max(0, min(255, b + offset))
+               )
+               
+       # Remap image onto the palette boundary
+       return dithered_img.quantize(palette=pal_template, dither=Image.Dither.NONE)
+       
+   def render_atlas_viewport(self):
+       if not self.sprite_sheet_img:
+           return
+           
+       self.atlas_canvas.delete("all")
+       canvas_w = self.atlas_canvas.winfo_width()
+       canvas_h = self.atlas_canvas.winfo_height()
+       
+       if canvas_w < 10 or canvas_h < 10:
+           self.root.after(100, self.render_atlas_viewport)
+           return
+           
+       # Convert indexed file output into viewable RGBA structure
+       preview_rgba = self.make_rgba_preview(self.sprite_sheet_img)
+       img_w, img_h = preview_rgba.size
+       
+       scale = min(canvas_w / img_w, canvas_h / img_h) * 0.95
+       scale = max(1.0, scale)
+       
+       target_w = int(img_w * scale)
+       target_h = int(img_h * scale)
+       
+       scaled_preview = preview_rgba.resize((target_w, target_h), Image.Resampling.NEAREST)
+       self.atlas_photo = ImageTk.PhotoImage(scaled_preview)
+       
+       # Render background transparent checker grid
+       self.draw_checkerboard(self.atlas_canvas, canvas_w, canvas_h)
+       
+       # Draw on screen
+       self.atlas_canvas.create_image(canvas_w // 2, canvas_h // 2, image=self.atlas_photo, anchor="center")
+       
+   def setup_animation_loop(self):
+       self.preview_tk_images = []
+       for img in self.processed_frames:
+           rgba_img = self.make_rgba_preview(img)
+           self.preview_tk_images.append(rgba_img)
+           
+       # Align index markers
+       if self.animation_index >= len(self.preview_tk_images):
+           self.animation_index = 0
+           
+       self.loop_animation()
+       
+   def loop_animation(self):
+       if not self.preview_tk_images:
+           return
+           
+       if self.animation_job:
+           self.root.after_cancel(self.animation_job)
+           self.animation_job = None
+           
+       self.preview_canvas.delete("all")
+       canvas_w = self.preview_canvas.winfo_width()
+       canvas_h = self.preview_canvas.winfo_height()
+       
+       if canvas_w < 10 or canvas_h < 10:
+           self.animation_job = self.root.after(100, self.loop_animation)
+           return
+           
+       self.draw_checkerboard(self.preview_canvas, canvas_w, canvas_h)
+       
+       current_frame = self.preview_tk_images[self.animation_index]
+       img_w, img_h = current_frame.size
+       
+       # Calculate viewport scale limits
+       scale = min(canvas_w / img_w, canvas_h / img_h) * 0.75
+       scale = max(1.0, scale)
+       
+       scaled_w = int(img_w * scale)
+       scaled_h = int(img_h * scale)
+       
+       resized_frame = current_frame.resize((scaled_w, scaled_h), Image.Resampling.NEAREST)
+       self.preview_photo = ImageTk.PhotoImage(resized_frame)
+       
+       cx, cy = canvas_w // 2, canvas_h // 2
+       self.preview_canvas.create_image(cx, cy, image=self.preview_photo, anchor="center")
+       
+       # Draw registration alignment crosshair over preview
+       self.preview_canvas.create_line(cx - 15, cy, cx + 15, cy, fill="#FF453A", width=1)
+       self.preview_canvas.create_line(cx, cy - 15, cx, cy + 15, fill="#FF453A", width=1)
+       
+       # Update timeline text reads
+       dx, dy = self.offsets[self.animation_index]
+       self.frame_info_var.set(f"Selected: Frame {self.animation_index + 1}/{len(self.preview_tk_images)} | Pivot Offset Adjust -> X: {dx}px, Y: {dy}px (Drag to adjust)")
+       
+       # Schedule next tick cycle
+       self.animation_index = (self.animation_index + 1) % len(self.preview_tk_images)
+       fps = self.fps_var.get()
+       delay_ms = int(1000 / fps)
+       self.animation_job = self.root.after(delay_ms, self.loop_animation)
+       
+   def start_registration_drag(self, event):
+       """Initializes dragging to offset pivot coordinates."""
+       if not self.preview_tk_images:
+           return
+       # Freeze frame index to edit currently active sprite slice
+       self.selected_timeline_index = (self.animation_index - 1) % len(self.preview_tk_images)
+       self.drag_start_x = event.x
+       self.drag_start_y = event.y
+       
+   def execute_registration_drag(self, event):
+       """Calculates displacement factors and updates frame alignment offsets."""
+       if not self.preview_tk_images:
+           return
+           
+       dx = event.x - self.drag_start_x
+       dy = event.y - self.drag_start_y
+       
+       # Set alignment threshold
+       if abs(dx) > 3 or abs(dy) > 3:
+           curr_dx, curr_dy = self.offsets[self.selected_timeline_index]
+           # Accumulate drag offsets to shift crop alignment bounds
+           self.offsets[self.selected_timeline_index] = (curr_dx + int(dx // 4), curr_dy + int(dy // 4))
+           
+           self.drag_start_x = event.x
+           self.drag_start_y = event.y
+           
+           # Instantly recompute and redraw frames
+           self.recompute()
+           
+   def make_rgba_preview(self, pil_img):
+       """Creates transparent RGBA views for standard displays by mapping #FF00FF to transparent."""
+       rgba = pil_img.convert("RGBA")
+       raw_pixels = rgba.getdata()
+       cleaned_data = []
+       for pixel in raw_pixels:
+           if pixel[0] == 255 and pixel[1] == 0 and pixel[2] == 255:
+               cleaned_data.append((0, 0, 0, 0)) # Fully transparent pixel
+           else:
+               cleaned_data.append(pixel)
+       rgba.putdata(cleaned_data)
+       return rgba
+       
+   def draw_checkerboard(self, canvas, width, height, tile_size=14):
+       """Draws a professional checkerboard grid beneath sprite elements."""
+       color1 = "#1A1A1A"
+       color2 = "#141414"
+       for y in range(0, height, tile_size):
+           for x in range(0, width, tile_size):
+               fill_color = color1 if ((x // tile_size) + (y // tile_size)) % 2 == 0 else color2
+               canvas.create_rectangle(x, y, x + tile_size, y + tile_size, fill=fill_color, outline="")
+               
+   def on_fps_change(self, val):
+       if self.preview_tk_images:
+           self.loop_animation()
+           
+   def export_png(self):
+       if not self.sprite_sheet_img:
+           return
+       dest = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Image", "*.png")], title="Export Indexed Retro Sprite Sheet")
+       if dest:
+           self.sprite_sheet_img.save(dest)
+           self.status_var.set(f"Export Success: Sheet saved to {os.path.basename(dest)}")
+           
+   def export_gif(self):
+       if not self.processed_frames:
+           return
+       dest = filedialog.asksaveasfilename(defaultextension=".gif", filetypes=[("GIF Animation", "*.gif")], title="Export Diagnostic Loop Preview")
+       if dest:
+           fps = self.fps_var.get()
+           delay_ms = int(1000 / fps)
+           self.processed_frames[0].save(
+               dest,
+               save_all=True,
+               append_images=self.processed_frames[1:],
+               duration=delay_ms,
+               loop=0,
+               transparency=15
+           )
+           self.status_var.set(f"Export Success: Diagnostic Preview GIF saved to {os.path.basename(dest)}")
+           
+   def export_html5(self):
+       """Generates a complete HTML5 Local Playtest Sandbox with a working canvas frame engine."""
+       if not self.sprite_sheet_img:
+           return
+           
+       dest_dir = filedialog.askdirectory(title="Select Target Folder for HTML5 Playtest Sandbox")
+       if not dest_dir:
+           return
+           
+       # Save standard spreadsheet alongside playtest page
+       sprite_sheet_path = os.path.join(dest_dir, "spritesheet.png")
+       self.sprite_sheet_img.save(sprite_sheet_path)
+       
+       # Determine coordinate sizes
+       size_str = self.size_var.get()
+       w_str, h_str = size_str.split("x")
+       sprite_w, sprite_h = int(w_str), int(h_str)
+       padding = self.pad_var.get()
+       
+       num_frames = len(self.processed_frames)
+       cols = math.ceil(math.sqrt(num_frames))
+       
+       # Construct frame offsets array for exact HTML5 texture slice calculations
+       frame_coordinates = []
+       for index in range(num_frames):
+           col = index % cols
+           row = index // cols
+           x = (col * sprite_w) + (padding * (col + 1))
+           y = (row * sprite_h) + (padding * (row + 1))
+           frame_coordinates.append({"x": x, "y": y})
+           
+       # Write clean local HTML file
+       html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Dex Sprite HTML5 Playtest Sandbox</title>
+   <style>
+       body {{
+           background-color: #121212;
+           color: #ffffff;
+           font-family: 'SF Pro Display', -apple-system, sans-serif;
+           display: flex;
+           flex-direction: column;
+           align-items: center;
+           justify-content: center;
+           min-height: 100vh;
+           margin: 0;
+       }}
+       h1 {{
+           font-size: 24px;
+           font-weight: 700;
+           margin-bottom: 5px;
+           letter-spacing: -0.5px;
+       }}
+       .subtitle {{
+           color: #888888;
+           font-size: 14px;
+           margin-bottom: 25px;
+       }}
+       .container {{
+           background: #1e1e1e;
+           padding: 30px;
+           border-radius: 16px;
+           box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+           display: flex;
+           flex-direction: column;
+           align-items: center;
+           border: 1px solid #2d2d2d;
+       }}
+       canvas {{
+           background-image: linear-gradient(45deg, #151515 25%, transparent 25%), 
+                             linear-gradient(-45deg, #151515 25%, transparent 25%), 
+                             linear-gradient(45deg, transparent 75%, #151515 75%), 
+                             linear-gradient(-45deg, transparent 75%, #151515 75%);
+           background-size: 20px 20px;
+           background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+           background-color: #1b1b1b;
+           border-radius: 8px;
+           margin-bottom: 20px;
+           image-rendering: pixelated;
+           border: 2px solid #3a3a3c;
+       }}
+       .controls {{
+           display: flex;
+           gap: 15px;
+           align-items: center;
+       }}
+       .btn {{
+           background-color: #007aff;
+           color: white;
+           border: none;
+           padding: 10px 20px;
+           border-radius: 8px;
+           font-size: 14px;
+           font-weight: 600;
+           cursor: pointer;
+           transition: background 0.2s;
+       }}
+       .btn:hover {{
+           background-color: #0062cc;
+       }}
+       .slider-group {{
+           display: flex;
+           flex-direction: column;
+           align-items: flex-start;
+       }}
+       label {{
+           font-size: 12px;
+           color: #888;
+           margin-bottom: 5px;
+           font-weight: 600;
+       }}
+   </style>
+</head>
+<body>
+
+   <h1>DEX SPRITE PLAYTEST SANDBOX</h1>
+   <div class="subtitle">Direct HTML5 Canvas Frame Execution Engine</div>
+
+   <div class="container">
+       <canvas id="gameCanvas" width="{sprite_w * 8}" height="{sprite_h * 8}"></canvas>
+       <div class="controls">
+           <button class="btn" id="playBtn">Pause</button>
+           <div class="slider-group">
+               <label id="fpsLabel">SPEED: {self.fps_var.get()} FPS</label>
+               <input type="range" id="fpsRange" min="1" max="30" value="{self.fps_var.get()}">
+           </div>
+       </div>
+   </div>
+
+   <script>
+       const canvas = document.getElementById('gameCanvas');
+       const ctx = canvas.getContext('2d');
+       ctx.imageSmoothingEnabled = false; // Force sharp pixel rendering
+
+       const spriteSheet = new Image();
+       spriteSheet.src = 'spritesheet.png';
+
+       const frames = {frame_coordinates};
+       const spriteW = {sprite_w};
+       const spriteH = {sprite_h};
+       
+       let currentFrameIndex = 0;
+       let isPlaying = true;
+       let fps = {self.fps_var.get()};
+       let lastFrameTime = 0;
+
+       spriteSheet.onload = () => {{
+           requestAnimationFrame(gameLoop);
+       }};
+
+       function gameLoop(time) {{
+           if (!isPlaying) {{
+               requestAnimationFrame(gameLoop);
+               return;
+           }}
+
+           const delta = time - lastFrameTime;
+           const interval = 1000 / fps;
+
+           if (delta >= interval) {{
+               ctx.clearRect(0, 0, canvas.width, canvas.height);
+               
+               const frame = frames[currentFrameIndex];
+               
+               // Draw sprite scaled up to fill screen area sharply
+               ctx.drawImage(
+                   spriteSheet,
+                   frame.x, frame.y, spriteW, spriteH, // Source
+                   0, 0, canvas.width, canvas.height // Destination
+               );
+               
+               currentFrameIndex = (currentFrameIndex + 1) % frames.length;
+               lastFrameTime = time - (delta % interval);
+           }}
+           
+           requestAnimationFrame(gameLoop);
+       }}
+
+       // Controls Bindings
+       const playBtn = document.getElementById('playBtn');
+       playBtn.addEventListener('click', () => {{
+           isPlaying = !isPlaying;
+           playBtn.textContent = isPlaying ? 'Pause' : 'Play';
+       }});
+
+       const fpsRange = document.getElementById('fpsRange');
+       const fpsLabel = document.getElementById('fpsLabel');
+       fpsRange.addEventListener('input', (e) => {{
+           fps = parseInt(e.target.value);
+           fpsLabel.textContent = `SPEED: ${{fps}} FPS`;
+       }});
+   </script>
+</body>
+</html>
+"""
+       with open(os.path.join(dest_dir, "index.html"), "w") as html_file:
+           html_file.write(html_content)
+           
+       self.status_var.set(f"Sandbox Compiled: Saved 'index.html' and 'spritesheet.png' to target directory!")
+       messagebox.showinfo("HTML5 Export Complete", "The local HTML5 browser playtest playground and compiled spritesheet have been generated successfully!")
+
+if __name__ == "__main__":
+   root = tk.Tk()
+   app = DexSpriteApp(root)
+   
+   # Scale canvas dynamically if interface is resized
+   root.bind("<Configure>", lambda e: app.render_atlas_viewport() if app.sprite_sheet_img else None)
+   root.mainloop()
+
+5. Execution, Installation & Automation Commands
+This step-by-step procedure provides an absolute guarantee of successful operations on an 8GB Apple Silicon MacBook Air:
+Step 5.1: Create Environment Sandbox
+Open your macOS Terminal utility, navigate to the folder of your choice, and run these commands sequentially to initialize directories and install the virtual environment:
+# Create directory workspace structure
+mkdir -p dex-sprite/src
+mkdir -p dex-sprite/frames
+
+# Change active directory paths
+cd dex-sprite
+
+# Setup virtual environment sandbox
+python3 -m venv venv
+source venv/bin/activate
+
+# Upgrade pip installer and install Pillow framework binary
+pip install --upgrade pip
+pip install Pillow
+
+Step 5.2: Execute Application Engine
+Run the main script:
+python3 src/app.py
+
+Step 5.3: Verification Checklist (What to test)
+         * Verify Pixel Boundary Integrity: Drop a series of frames of any size into the interface. Verify that changing options between 16x16, 16x32, and 32x32 rescales images without introducing blurred margins.
+         * Test the Manual Registration Tool: Click and hold inside the Live Registration View box and drag your mouse. The frame will shift, allowing you to manually align frames (ideal for centering running cycles).
+         * Verify Palette Depth: Open the exported spritesheet.png in any image editor and verify that the global color index count is exactly 16 (15 custom colors + 1 pure magenta index).
+         * HTML5 Sandbox Execution: After clicking "Export HTML5 Playtest Sandbox," double-click the outputted index.html file. It will open in Safari or Chrome and play your animation loop smoothly using sharp nearest-neighbor rendering.
+6. Edge Case Fail-Safe Procedures
+To prevent application errors, verify the following parameters during complex compile procedures:
+Detected Issue
+	Root Cause
+	Resolution Strategy
+	Bilinear Blur on Safari Output
+	Modern browser defaults blur scaled canvas elements.
+	The template has explicit image-rendering: pixelated; CSS overrides and sets ctx.imageSmoothingEnabled = false globally inside the script. Do not modify these rules.
+	System Out of Memory (OOM)
+	High-resolution frames saturate M1 unified memory.
+	The processing engine is written sequentially, discarding original image pointers after scaling. Avoid loading multi-gigabyte folder structures.
+	Flickering Colors Between Frames
+	Distinct palettes compiled per individual frames.
+	Resolved via global consolidation step (composite compilation) before running quantization. This forces all animation frames to share the same color indices.
