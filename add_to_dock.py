@@ -2,28 +2,23 @@ import os
 import sys
 import subprocess
 import plistlib
+import random
 
-# Dex Sprite — macOS Dock Integration Script
+# Dex Sprite — macOS Dock Integration Script (using defaults export/import for cfprefsd synchronization)
 
-plist_path = os.path.expanduser("~/Library/Preferences/com.apple.dock.plist")
-
-if not os.path.exists(plist_path):
-    print("Error: com.apple.dock.plist not found.", file=sys.stderr)
-    sys.exit(1)
-
-print("==> Loading com.apple.dock.plist preferences...")
-
+print("==> Exporting current com.apple.dock preferences via defaults...")
 try:
-    with open(plist_path, 'rb') as fp:
-        dock_data = plistlib.load(fp)
+    # Export current synced Dock state from cfprefsd
+    res = subprocess.run(["defaults", "export", "com.apple.dock", "-"], capture_output=True, check=True)
+    dock_data = plistlib.loads(res.stdout)
 except Exception as e:
-    print(f"Error loading plist: {e}", file=sys.stderr)
+    print(f"Error exporting plist from defaults: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Check persistent-apps
 persistent_apps = dock_data.get('persistent-apps', [])
 
-# Check if DexSprite is already added
+# Check if Dex Sprite is already added
 app_path = "file:///Applications/Dex%20Sprite.app/"
 already_exists = False
 
@@ -31,7 +26,10 @@ for app in persistent_apps:
     tile_data = app.get('tile-data', {})
     file_data = tile_data.get('file-data', {})
     url_str = file_data.get('_CFURLString', '')
-    if app_path.lower() in url_str.lower() or "/Applications/Dex Sprite.app".lower() in url_str.lower():
+    bundle_id = tile_data.get('bundle-identifier', '')
+    if (app_path.lower() in url_str.lower() or 
+        "/Applications/Dex Sprite.app".lower() in url_str.lower() or 
+        bundle_id == "com.andrew.DexSprite"):
         already_exists = True
         break
 
@@ -42,13 +40,16 @@ else:
     
     # Construct standard macOS Dock persistent application tile dictionary
     new_tile = {
+        'GUID': random.randint(1000000000, 9999999999),
         'tile-data': {
             'file-data': {
                 '_CFURLString': app_path,
-                '_CFURLFileType': 0
+                '_CFURLFileType': 0,
+                '_CFURLStringType': 15
             },
             'file-label': 'Dex Sprite',
-            'file-type': 41 # Application type identifier
+            'file-type': 41, # Application type identifier
+            'bundle-identifier': 'com.andrew.DexSprite'
         },
         'tile-type': 'file-tile'
     }
@@ -56,13 +57,23 @@ else:
     persistent_apps.append(new_tile)
     dock_data['persistent-apps'] = persistent_apps
     
+    # Write to a temporary file inside the workspace
+    temp_plist_path = "temp_dock.plist"
     try:
-        with open(plist_path, 'wb') as fp:
+        with open(temp_plist_path, 'wb') as fp:
             plistlib.dump(dock_data, fp)
-        print("==> Saved com.apple.dock.plist successfully.")
+        
+        # Import back to defaults system to force cfprefsd syncing
+        subprocess.run(["defaults", "import", "com.apple.dock", temp_plist_path], check=True)
+        print("==> Imported updated preferences via defaults successfully.")
     except Exception as e:
-        print(f"Error saving plist: {e}", file=sys.stderr)
+        print(f"Error saving or importing plist: {e}", file=sys.stderr)
+        if os.path.exists(temp_plist_path):
+            os.remove(temp_plist_path)
         sys.exit(1)
+    finally:
+        if os.path.exists(temp_plist_path):
+            os.remove(temp_plist_path)
 
     print("==> Restarting macOS Dock to apply changes...")
     subprocess.run(["killall", "Dock"], check=True)
